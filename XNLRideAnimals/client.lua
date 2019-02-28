@@ -117,6 +117,13 @@ function OnPlayerRequestToRideAnimal()
 	return true
 end
 
+
+--===========================================================================================================================
+-- ONE simple setting to allow other players to ride on other players IF they are animals
+-- NOTE: you CAN NOT control the other player though!
+--===========================================================================================================================
+local AllowRidingAnimalPlayers = false
+
 --===========================================================================================================================
 -- (Global) Script Declarations
 --===========================================================================================================================
@@ -220,12 +227,14 @@ function Animal.Attach()
 		XAminalOffSet = -0.0
 	end
 
-	if (HelperMessageID > 2 or HelperMessageID < 2) and not Animal.InControl then
-		DisplayHelpText('Keep tapping ~INPUT_VEH_ACCELERATE~ to get control of the ' .. AnimalName)
-		HelperMessageID = 2
-		AnimalControlStatus = 0.05
+	if NetworkGetPlayerIndexFromPed(Animal.Handle) == -1 then
+		if (HelperMessageID > 2 or HelperMessageID < 2) and not Animal.InControl then
+			DisplayHelpText('Keep tapping ~INPUT_VEH_ACCELERATE~ to get control of the ' .. AnimalName)
+			HelperMessageID = 2
+			AnimalControlStatus = 0.05
+		end
 	end
-
+	
 	SetCurrentPedWeapon(Ped, "weapon_unarmed", true)	-- Sets the player to unarmed (no weapons), 
 														-- it could "freak out" Peds or Feds, and 'space the weapon' through the animal
 	AttachEntityToEntity(Ped, Animal.Handle, GetPedBoneIndex(Animal.Handle, 24816), XAminalOffSet, 0.0, AnimalOffSet, 0.0, 0.0, -90.0, false, false, false, true, 2, true)
@@ -298,9 +307,12 @@ function Animal.Ride()
 			if not IsPedFalling(Ped) and not IsPedFatallyInjured(Ped) and not IsPedDeadOrDying(Ped) 
 			   and not IsPedDeadOrDying(Ped) and not IsPedGettingUp(Ped) and not IsPedRagdoll(Ped) then
 				if (GetEntityModel(Ped) == GetHashKey("a_c_deer") or GetEntityModel(Ped) == GetHashKey("a_c_cow")
-					or GetEntityModel(Ped) == GetHashKey("a_c_boar")) and NetworkGetPlayerIndexFromPed(Ped) == -1 then
-
-					print()
+					or GetEntityModel(Ped) == GetHashKey("a_c_boar")) then
+					
+					if NetworkGetPlayerIndexFromPed(Ped) > -1 and not AllowRidingAnimalPlayers then
+						return
+					end
+					
 					
 					-- Here we do a simple scan to see if there are other Peds in the radius of the animal
 					-- (although for 'all safety' I've made this scan a bit bigger)
@@ -440,33 +452,35 @@ Citizen.CreateThread(function()
 							DrawMarker(6, GoToOffset.x, GoToOffset.y, GoToOffset.z, 0, 0, 0, 0, 0, 0, 1.0, 1.0, 1.0, 255, 255, 255, 255, 0, 0, 2, 0, 0, 0, 0)
 						end
 					else
-						-- Tapping (Default) the [W] key to gain control of the animal
-						if IsControlJustPressed(1, 71) and GetLastInputMethod(0) then
-							if AnimalControlStatus < 0.1 then
-								AnimalControlStatus = AnimalControlStatus + 0.005
-								if AnimalControlStatus > 0.1 then 
-									AnimalControlStatus = 0.1 
-									if HelperMessageID > 4 or HelperMessageID < 4 then
-										DisplayHelpText("You've gained control of the animal.")
-										HelperMessageID = 4
-										AnimalControlStatus = 0
-										Animal.InControl = true
+						if NetworkGetPlayerIndexFromPed(Animal.Handle) == -1 then
+							-- Tapping (Default) the [W] key to gain control of the animal
+							if IsControlJustPressed(1, 71) and GetLastInputMethod(0) then
+								if AnimalControlStatus < 0.1 then
+									AnimalControlStatus = AnimalControlStatus + 0.005
+									if AnimalControlStatus > 0.1 then 
+										AnimalControlStatus = 0.1 
+										if HelperMessageID > 4 or HelperMessageID < 4 then
+											DisplayHelpText("You've gained control of the animal.")
+											HelperMessageID = 4
+											AnimalControlStatus = 0
+											Animal.InControl = true
+										end
 									end
 								end
 							end
-						end
-					
-						if AnimalControlStatus <= 0.001 and not Animal.InControl then
-							if HelperMessageID > 3 or HelperMessageID < 3 then
-								DisplayHelpText("You've the lost your grip and fell off.")
-								HelperMessageID = 3
-							end
-							DropPlayerFromAnimal()
-						end
 						
-						if not Animal.IsFleeing then
-							Animal.IsFleeing = true
-							TaskSmartFleePed(Animal.Handle, Ped, 9000.0, -1, false, false)
+							if AnimalControlStatus <= 0.001 and not Animal.InControl then
+								if HelperMessageID > 3 or HelperMessageID < 3 then
+									DisplayHelpText("You've the lost your grip and fell off.")
+									HelperMessageID = 3
+								end
+								DropPlayerFromAnimal()
+							end
+							
+							if not Animal.IsFleeing then
+								Animal.IsFleeing = true
+								TaskSmartFleePed(Animal.Handle, Ped, 9000.0, -1, false, false)
+							end
 						end
 					end
 				end
