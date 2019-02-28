@@ -297,9 +297,11 @@ function Animal.Ride()
 		for _, Ped in pairs(GetNearbyPeds(PedPosition.x, PedPosition.y, PedPosition.z, 2.0)) do
 			if not IsPedFalling(Ped) and not IsPedFatallyInjured(Ped) and not IsPedDeadOrDying(Ped) 
 			   and not IsPedDeadOrDying(Ped) and not IsPedGettingUp(Ped) and not IsPedRagdoll(Ped) then
-				if GetEntityModel(Ped) == GetHashKey("a_c_deer") or GetEntityModel(Ped) == GetHashKey("a_c_cow")
-					or GetEntityModel(Ped) == GetHashKey("a_c_boar") then
+				if (GetEntityModel(Ped) == GetHashKey("a_c_deer") or GetEntityModel(Ped) == GetHashKey("a_c_cow")
+					or GetEntityModel(Ped) == GetHashKey("a_c_boar")) and NetworkGetPlayerIndexFromPed(Ped) == -1 then
 
+					print()
+					
 					-- Here we do a simple scan to see if there are other Peds in the radius of the animal
 					-- (although for 'all safety' I've made this scan a bit bigger)
 					-- If it turns out if there is a player nearby it will then compare if that Entity (The other player)
