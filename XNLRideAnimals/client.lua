@@ -51,6 +51,15 @@ Improvements/Upgrades made:
 	  The animal will FLEE AGAIN when you try to re-board it after you get off or fallen off (it still is a WILD animal!)
   - The player position is now actually 'front facing' which also makes it possible to ride the animals in First Person
   
+=======================================================================================
+Update 1.1 Changelog:
+ - Now support to use controllers
+ - Additional "upsupported" support for add-on/replacement animals like a horse
+   - See the first parts of the code to see how to enable replacement horses :)
+     (or CTRL+F for IhaveReplacedMyDeerWithModNumber1 if you're lazy :P)
+ - Script performance (CPU time) improvements (On both idle and in use while riding)
+=======================================================================================
+  
 Important to know:
   This script does NOT use MissionEntity's or Persitant Entity's, nor does it make them from
   the animal's you are riding. This means that it will/should not create 'left over objects'.
@@ -117,7 +126,6 @@ function OnPlayerRequestToRideAnimal()
 	return true
 end
 
-
 --===========================================================================================================================
 -- ONE simple setting to allow other players to ride on other players IF they are animals
 -- NOTE: you CAN NOT control the other player though!
@@ -125,10 +133,37 @@ end
 local AllowRidingAnimalPlayers = false
 
 --===========================================================================================================================
+-- Here you can set if you used certain mods to replace animal in the game
+-- DO NOTE: that you OBVIOUSLY can only replace a certain animal with ONE mod at a time!
+-- So you can not replace the deer with two other animals at the same time.
+--
+-- NOTE: I DO NOT offer support for these mods! I was just a bit more helpful in adding the correct
+-- animations and offsets for you guys! You will need to install the mod your self, figure out how
+-- to stream it and how to get it to work! These mods are NOT MINE and so I can't (and won't) afford the
+-- time to give 'extra support' on mods from other people ;)
+--
+-- How ever I did decided to add "some mod support" for requested mods, BUT that I support one or two doesn'table
+-- mean i will keep adding others endlessly! Since I will have to install them on MY server everytime to test and
+-- get the offset right. So: EXTERNAL MOD SUPPORT IS: AS-IS with NO support for installation or whatever.
+--
+-- **********************************************************************************************
+-- Supported Mod(s):
+-- **********************************************************************************************
+-- Mod Numer one (1):
+-- https://www.gta5-mods.com/misc/horse-mod
+-- This one replaces the Deer in game, to enable support for this replacement change:
+-- IhaveReplacedMyDeerWithModNumber1 = false to: IhaveReplacedMyDeerWithModNumber1 = true
+-- **********************************************************************************************
+--===========================================================================================================================
+IhaveReplacedMyDeerWithModNumber1 = false
+
+--===========================================================================================================================
 -- (Global) Script Declarations
 --===========================================================================================================================
 local HelperMessageID = 0
 AnimalControlStatus =  0.05
+XNL_IsRidingAnimal = false		-- This one is used so the script knows if it need to run the entire code in
+								-- it's main thread or not (and thus performance increasing on idle (not riding))
 
 local Animal = {
 	Handle = nil,
@@ -212,6 +247,14 @@ function Animal.Attach()
 	XAminalOffSet = 0.0 -- Default DEER offset
 	AnimalOffSet  = 0.2  -- Default DEER offset
 	--if GetEntityModel(Animal.Handle) == GetHashKey('a_c_cow') then AnimalOffSet = 0.2 end
+
+	if GetEntityModel(Animal.Handle) == GetHashKey('a_c_deer') and IhaveReplacedMyDeerWithModNumber1 then 
+		AnimalName = "Horse"
+		AnimalType = 1
+		AnimalOffSet  = 0.12
+		XAminalOffSet = -0.2
+	end
+	
 	
 	if GetEntityModel(Animal.Handle) == GetHashKey('a_c_cow') then 
 		AnimalName = "Cow"
@@ -260,6 +303,7 @@ function Animal.Attach()
 	FreezeEntityPosition(Ped, false)
 	OnPlayerBoardAnimal() -- Used to do some 'extra stuff' on our server when a player has boarded an animal
 						  -- you can also use it to for example save stats like: Ridden Animals: [number of times]
+	XNL_IsRidingAnimal = true
 end
 
 function Animal.Ride()
@@ -359,6 +403,7 @@ function DropPlayerFromAnimal()
 	SetPedToRagdoll(Ped, 1500, 1500, 0, 0, 0, 0)
 	AnimalControlStatus = 0
 	OnPlayerLeaveAnimal() -- Used on our server to do 'stuff' when the player got of the animal
+	XNL_IsRidingAnimal = false
 end
 
 --===========================================================================================================================
@@ -400,21 +445,19 @@ Citizen.CreateThread(function()
 end)
 
 Citizen.CreateThread(function()
-	--RequestAnimDict("rcmjosh2")
-	--while not HasAnimDictLoaded("rcmjosh2") do
-
 	while true do
 		Citizen.Wait(0)
 
 		-- This is (BY DEFAULT HOWEVER!) the [E] key
-		if IsControlJustPressed(1, 51) and GetLastInputMethod(0) then
+		if IsControlJustPressed(1, 51) then
 			Animal.Ride()
 		end
 
-		local Ped = PlayerPedId()
-		local AttachedEntity = GetEntityAttachedTo(Ped)
-
-		if (not IsPedSittingInAnyVehicle(Ped) or not IsPedGettingIntoAVehicle(Ped)) and IsEntityAttached(Ped) and AttachedEntity == Animal.Handle then
+		if XNL_IsRidingAnimal then
+			local Ped = PlayerPedId()
+			local AttachedEntity = GetEntityAttachedTo(Ped)
+	
+			if (not IsPedSittingInAnyVehicle(Ped) or not IsPedGettingIntoAVehicle(Ped)) and IsEntityAttached(Ped) and AttachedEntity == Animal.Handle then
 			if DoesEntityExist(Animal.Handle) then
 				AnimalChecksOkay = true 		-- We set the 'animal state' default to true
 				
@@ -454,7 +497,7 @@ Citizen.CreateThread(function()
 					else
 						if NetworkGetPlayerIndexFromPed(Animal.Handle) == -1 then
 							-- Tapping (Default) the [W] key to gain control of the animal
-							if IsControlJustPressed(1, 71) and GetLastInputMethod(0) then
+							if IsControlJustPressed(1, 71) then
 								if AnimalControlStatus < 0.1 then
 									AnimalControlStatus = AnimalControlStatus + 0.005
 									if AnimalControlStatus > 0.1 then 
@@ -485,6 +528,7 @@ Citizen.CreateThread(function()
 					end
 				end
 			end
+		end
 		end
 	end
 end)
